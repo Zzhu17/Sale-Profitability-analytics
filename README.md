@@ -2,6 +2,8 @@
 
 Sprint 0 foundation for a decision-support product that helps B2B sales teams identify **accounts warranting review**. This repository is a production-shaped modular monolith; it is not yet a finished recommendation product.
 
+Sprint 0 engineering is complete. [Sprint 1 planning](docs/sprint-1-plan.md) is ready for the import, validation, and mapping-review vertical slice; activation of real mappings and downstream business logic remains gated by the D0 audit of real anonymized data.
+
 ## Current boundary
 
 - **Locked:** product purpose, hypotheses, MVP boundary, modular-monolith direction, PostgreSQL job queue, and public/private data separation. See the [development handoff](docs/Resume_Project_03_Codex_Handoff.md).
