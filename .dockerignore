@@ -1,0 +1,15 @@
+.git
+.env
+.venv
+**/__pycache__
+**/*.pyc
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.pnpm-store
+node_modules
+apps/web/node_modules
+apps/web/dist
+data/raw
+data/processed
+Demand_Forecast_Analysis

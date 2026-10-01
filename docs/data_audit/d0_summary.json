@@ -1,0 +1,38 @@
+{
+  "evidence_kind": null,
+  "status": "Pending real anonymized data",
+  "issues": null,
+  "analyses": null,
+  "gates": {
+    "Customer 360": {
+      "judgment": "Pending",
+      "evidence": "Real anonymized evidence has not been audited"
+    },
+    "Profitability analytics": {
+      "judgment": "Pending",
+      "evidence": "Real anonymized evidence has not been audited"
+    },
+    "Reorder-cycle rules": {
+      "judgment": "Pending",
+      "evidence": "Real anonymized evidence has not been audited"
+    },
+    "Purchase-propensity ML": {
+      "judgment": "Pending",
+      "evidence": "Real anonymized evidence has not been audited"
+    },
+    "Temporal backtesting": {
+      "judgment": "Pending",
+      "evidence": "Real anonymized evidence has not been audited"
+    }
+  },
+  "provisional_decisions": [
+    "source-to-canonical mappings",
+    "purchase-event contract",
+    "profitability contract v1",
+    "label window",
+    "eligibility rules",
+    "return attribution rules",
+    "inventory/product-affinity logic",
+    "modeling feasibility"
+  ]
+}

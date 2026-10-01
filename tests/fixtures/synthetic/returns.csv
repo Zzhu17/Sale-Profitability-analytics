@@ -1,0 +1,2 @@
+return_id,customer_id,product_id,return_date,quantity,return_amount,original_invoice_id
+RET-SYN-001,CUST-SYN-001,PROD-SYN-001,2025-01-15,1,100.00,

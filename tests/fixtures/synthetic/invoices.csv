@@ -1,0 +1,6 @@
+invoice_id,customer_id,order_date,status,total
+INV-SYN-001,CUST-SYN-001,2025-01-01,Paid,100.00
+INV-SYN-002,CUST-SYN-002,2025-02-01,Void,50.00
+INV-SYN-003,CUST-UNMAPPED,2025-03-01,Open,not-a-number
+INV-SYN-004,CUST-SYN-003,2099-01-01,Paid,80.00
+INV-SYN-005,CUST-SYN-003,not-a-date,Paid,0

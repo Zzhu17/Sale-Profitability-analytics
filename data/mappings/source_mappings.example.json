@@ -1,0 +1,13 @@
+{
+  "status": "example_only_pending_real_anonymized_data",
+  "mappings": [
+    {
+      "source_name": "customer_export",
+      "canonical_entity": "customers",
+      "fields": {
+        "Customer ID": "customer_id",
+        "Customer Name": "customer_name"
+      }
+    }
+  ]
+}
