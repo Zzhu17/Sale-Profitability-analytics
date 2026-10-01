@@ -91,6 +91,7 @@ pnpm lint
 pnpm test
 pnpm build
 docker compose config
+docker compose build api worker
 ```
 
 ## Archived source artifacts
