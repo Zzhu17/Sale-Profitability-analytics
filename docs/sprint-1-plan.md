@@ -69,7 +69,7 @@ These remain Sprint 2+ candidates after Gate 1 evidence is available.
 | S1-04 | Mapping version and review persistence | M | S1-01 | Complete — draft, approved, and rejected decisions are attributable; approved versions cannot be edited in place. |
 | S1-05 | Import and mapping-review API | M | S1-03, S1-04 | Complete — API lists batches, source profiles, issues, mapping proposals, and review decisions with stable response models. |
 | S1-06 | Minimal web vertical slice | M | S1-05 | Complete — user can upload, poll status, inspect issues, and approve or reject a mapping proposal with accessible loading/error states. |
-| S1-07 | Integration and E2E coverage | M | S1-03–S1-06 | PostgreSQL integration tests and one synthetic browser flow pass in CI; private data is not required. |
+| S1-07 | Integration and E2E coverage | M | S1-03–S1-06 | In progress — PostgreSQL integration tests and one synthetic browser flow pass locally; CI browser automation remains to be added. |
 | S1-08 | Gate 1 real-data audit and mapping activation | M | Real anonymized data | D0 outputs are evidence-backed; approved mapping is exercised against private data; unresolved gates are explicit. |
 | S1-09 | Canonical promotion seam | L | S1-08 | Approved mappings can promote accepted rows with raw-row and mapping-version lineage; unapproved mappings cannot. |
 

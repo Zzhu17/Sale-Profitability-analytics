@@ -36,6 +36,8 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://sales_app:local_only_change_me@db:5432/sales_intelligence}
     ports:
       - "8000:8000"
+    volumes:
+      - raw_imports:/app/data/raw/imports
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -47,6 +49,8 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://sales_app:local_only_change_me@db:5432/sales_intelligence}
       WORKER_POLL_SECONDS: ${WORKER_POLL_SECONDS:-2}
+    volumes:
+      - raw_imports:/app/data/raw/imports
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -63,3 +67,4 @@ services:
 
 volumes:
   postgres_data:
+  raw_imports:
