@@ -22,7 +22,15 @@ class RawRecord:
     values: Mapping[str, RawScalar]
 
 
+@dataclass(frozen=True)
+class SourceSchema:
+    source_name: str
+    headers: tuple[str, ...]
+
+
 class SourceAdapter(Protocol):
+    def schemas(self) -> Iterator[SourceSchema]: ...
+
     def records(self) -> Iterator[RawRecord]: ...
 
 
@@ -55,6 +63,15 @@ class CsvSourceAdapter:
     def __init__(self, path: Path) -> None:
         self.path = path
 
+    def schemas(self) -> Iterator[SourceSchema]:
+        with self.path.open(encoding="utf-8-sig", newline="") as source:
+            reader = csv.reader(source)
+            try:
+                headers = _headers(tuple(next(reader)), self.path.stem)
+            except StopIteration as error:
+                raise SourceAdapterError(f"{self.path.name}: source is empty") from error
+            yield SourceSchema(self.path.stem, headers)
+
     def records(self) -> Iterator[RawRecord]:
         with self.path.open(encoding="utf-8-sig", newline="") as source:
             reader = csv.reader(source)
@@ -83,6 +100,30 @@ class ExcelSourceAdapter:
         self.path = path
         self.header_rows = header_rows or {}
         self.included_sheets = included_sheets
+
+    def schemas(self) -> Iterator[SourceSchema]:
+        workbook = load_workbook(self.path, read_only=True, data_only=False)
+        try:
+            for worksheet in workbook.worksheets:
+                if (
+                    self.included_sheets is not None
+                    and worksheet.title not in self.included_sheets
+                ):
+                    continue
+                header_row = self.header_rows.get(worksheet.title, 1)
+                rows = worksheet.iter_rows(values_only=True)
+                for _ in range(header_row - 1):
+                    next(rows, None)
+                header_values = next(rows, None)
+                if header_values is None or not any(value is not None for value in header_values):
+                    continue
+                trimmed_headers = list(header_values)
+                while trimmed_headers and trimmed_headers[-1] is None:
+                    trimmed_headers.pop()
+                headers = _headers(tuple(trimmed_headers), worksheet.title)
+                yield SourceSchema(worksheet.title, headers)
+        finally:
+            workbook.close()
 
     def records(self) -> Iterator[RawRecord]:
         workbook = load_workbook(self.path, read_only=True, data_only=False)

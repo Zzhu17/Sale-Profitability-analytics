@@ -3,7 +3,17 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import (
+    BigInteger,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+    func,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -30,6 +40,18 @@ class BatchStatus(StrEnum):
     FAILED = "failed"
 
 
+class ValidationSeverity(StrEnum):
+    INFORMATIONAL = "informational"
+    WARNING = "warning"
+    CRITICAL = "critical"
+
+
+class ValidationDisposition(StrEnum):
+    FLAG = "flag"
+    QUARANTINE = "quarantine"
+    REJECT = "reject"
+
+
 class ImportJob(Base):
     __tablename__ = "import_jobs"
     __table_args__ = (
@@ -42,6 +64,12 @@ class ImportJob(Base):
             name="ck_import_jobs_type",
         ),
         CheckConstraint("char_length(source_sha256) = 64", name="ck_import_jobs_sha256"),
+        Index(
+            "uq_import_jobs_active_source_sha256",
+            "source_sha256",
+            unique=True,
+            postgresql_where=text("status IN ('queued', 'running', 'awaiting_mapping')"),
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -91,6 +119,31 @@ class ImportBatch(Base):
     error_summary: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
 
+class SourceProfile(Base):
+    __tablename__ = "source_profiles"
+    __table_args__ = (
+        CheckConstraint("row_count >= 0", name="ck_source_profiles_row_count"),
+        CheckConstraint("field_count >= 0", name="ck_source_profiles_field_count"),
+        Index(
+            "uq_source_profiles_batch_source",
+            "import_batch_id",
+            "source_name",
+            unique=True,
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    import_batch_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("import_batches.id"), index=True
+    )
+    source_name: Mapped[str] = mapped_column(String(512))
+    row_count: Mapped[int] = mapped_column(BigInteger)
+    field_count: Mapped[int] = mapped_column(BigInteger)
+    field_profiles: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
+    profiled_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
 class RawSourceRow(Base):
     __tablename__ = "raw_source_rows"
     __table_args__ = (
@@ -118,3 +171,39 @@ class RawSourceRow(Base):
     validation_status: Mapped[str] = mapped_column(String(32), default="pending")
     validation_errors: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
     error_reason: Mapped[str | None] = mapped_column(Text)
+
+
+class ImportValidationIssue(Base):
+    __tablename__ = "import_validation_issues"
+    __table_args__ = (
+        CheckConstraint(
+            "severity IN ('informational', 'warning', 'critical')",
+            name="ck_import_validation_issues_severity",
+        ),
+        CheckConstraint(
+            "disposition IN ('flag', 'quarantine', 'reject')",
+            name="ck_import_validation_issues_disposition",
+        ),
+        CheckConstraint(
+            "original_row_number IS NULL OR original_row_number > 0",
+            name="ck_import_validation_issues_row_number",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    import_batch_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("import_batches.id"), index=True
+    )
+    raw_source_row_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("raw_source_rows.id"), index=True
+    )
+    source_name: Mapped[str] = mapped_column(String(512))
+    original_row_number: Mapped[int | None] = mapped_column(BigInteger)
+    severity: Mapped[str] = mapped_column(String(32))
+    code: Mapped[str] = mapped_column(String(128))
+    field_name: Mapped[str | None] = mapped_column(String(512))
+    detail: Mapped[str] = mapped_column(Text)
+    disposition: Mapped[str] = mapped_column(String(32))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )

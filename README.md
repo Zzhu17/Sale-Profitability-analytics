@@ -51,6 +51,8 @@ docker compose up --build
 
 The `migrate` service applies Alembic before the API and worker start. The worker claims jobs with `FOR UPDATE SKIP LOCKED`; it does not use Redis or Celery. Raw ingestion stops at `awaiting_mapping` until D0 approves a source-to-canonical mapping.
 
+The [import contract](docs/import-contract.md) defines accepted source types, configurable limits, idempotent retries, state transitions, and validation persistence.
+
 For host development:
 
 ```bash

@@ -3,8 +3,15 @@ from collections.abc import Iterator
 from typing import Annotated
 
 from b2b_domain.db import SessionLocal
-from b2b_domain.ingestion import create_import_job as register_import_job
-from b2b_domain.ingestion import stage_source
+from b2b_domain.ingestion import (
+    ImportContractError,
+    ImportRegistration,
+    discard_staged_source,
+    stage_source,
+)
+from b2b_domain.ingestion import (
+    create_import_job as register_import_job,
+)
 from b2b_domain.models import ImportBatch, ImportJob
 from b2b_domain.settings import get_settings
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
@@ -29,6 +36,7 @@ class ImportJobResponse(BaseModel):
     pending_row_count: int | None
     quarantined_row_count: int | None
     rejected_row_count: int | None
+    reused: bool
 
 
 def get_session() -> Iterator[Session]:
@@ -39,7 +47,9 @@ def get_session() -> Iterator[Session]:
 SessionDependency = Annotated[Session, Depends(get_session)]
 
 
-def _response(job: ImportJob, batch: ImportBatch) -> ImportJobResponse:
+def _response(registration: ImportRegistration) -> ImportJobResponse:
+    job = registration.job
+    batch = registration.batch
     return ImportJobResponse(
         id=job.id,
         batch_id=batch.id,
@@ -50,6 +60,7 @@ def _response(job: ImportJob, batch: ImportBatch) -> ImportJobResponse:
         pending_row_count=job.pending_row_count,
         quarantined_row_count=job.quarantined_row_count,
         rejected_row_count=job.rejected_row_count,
+        reused=registration.reused,
     )
 
 
@@ -70,12 +81,30 @@ def create_import_job(
 ) -> ImportJobResponse:
     if not source.filename:
         raise HTTPException(status_code=422, detail="Source filename is required")
+    staged = None
     try:
-        staged = stage_source(source.file, source.filename, get_settings().raw_data_dir)
-        job, batch = register_import_job(session, staged)
-    except ValueError as error:
-        raise HTTPException(status_code=422, detail=str(error)) from error
-    return _response(job, batch)
+        settings = get_settings()
+        staged = stage_source(
+            source.file,
+            source.filename,
+            settings.raw_data_dir,
+            max_upload_bytes=settings.max_upload_bytes,
+        )
+        registration = register_import_job(session, staged)
+        if registration.reused:
+            discard_staged_source(staged)
+    except ImportContractError as error:
+        if staged is not None:
+            discard_staged_source(staged)
+        raise HTTPException(
+            status_code=422,
+            detail={"code": error.code, "message": str(error)},
+        ) from error
+    except Exception:
+        if staged is not None:
+            discard_staged_source(staged)
+        raise
+    return _response(registration)
 
 
 @app.get("/import-jobs/{job_id}", response_model=ImportJobResponse, tags=["imports"])
@@ -84,4 +113,4 @@ def get_import_job(job_id: uuid.UUID, session: SessionDependency) -> ImportJobRe
     batch = session.scalar(select(ImportBatch).where(ImportBatch.import_job_id == job_id))
     if job is None or batch is None:
         raise HTTPException(status_code=404, detail="Import job not found")
-    return _response(job, batch)
+    return _response(ImportRegistration(job, batch, reused=False))

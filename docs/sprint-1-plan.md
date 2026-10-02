@@ -1,6 +1,6 @@
 # Sprint 1 Plan — Import, Validation, and Mapping Review
 
-- **Planning status:** Ready
+- **Planning status:** In progress — S1-01 through S1-03 complete
 - **Implementation gate:** Generic engineering work may begin; real source activation remains blocked until Gate 1.
 - **Capacity assumption:** One developer, ordered backlog, no calendar commitment until capacity is confirmed.
 
@@ -63,9 +63,9 @@ These remain Sprint 2+ candidates after Gate 1 evidence is available.
 
 | ID | Work package | Size | Dependency | Acceptance criteria |
 |---|---|---:|---|---|
-| S1-01 | Import contract and state machine | S | None | Allowed files, limits, idempotency behavior, error taxonomy, and job/batch transitions are documented and tested. |
-| S1-02 | Source profiling and validation persistence | M | S1-01 | CSV sheets/files produce row counts, field profiles, and structured issues without mutating raw rows. |
-| S1-03 | Worker validation flow | M | S1-02 | Worker moves a batch deterministically from received through loading to awaiting mapping or failed; counts reconcile to source rows. |
+| S1-01 | Import contract and state machine | S | None | Complete — allowed files, limits, idempotency behavior, error taxonomy, and job/batch transitions are documented and tested. |
+| S1-02 | Source profiling and validation persistence | M | S1-01 | Complete — CSV sheets/files produce row counts, field profiles, and structured issues without mutating raw rows. |
+| S1-03 | Worker validation flow | M | S1-02 | Complete — worker moves a batch deterministically from received through loading to awaiting mapping or failed; counts reconcile to source rows. |
 | S1-04 | Mapping version and review persistence | M | S1-01 | Draft, approved, and rejected decisions are attributable; approved versions cannot be edited in place. |
 | S1-05 | Import and mapping-review API | M | S1-03, S1-04 | API lists batches, source profiles, issues, mapping proposals, and review decisions with stable response models. |
 | S1-06 | Minimal web vertical slice | M | S1-05 | User can upload, poll status, inspect issues, and approve or reject a mapping proposal with accessible loading/error states. |

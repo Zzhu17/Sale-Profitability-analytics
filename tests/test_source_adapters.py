@@ -1,8 +1,10 @@
+import uuid
 from io import BytesIO
 from pathlib import Path
 
+import pytest
 from b2b_domain.canonical import CanonicalEntity, SourceMapping, map_record
-from b2b_domain.ingestion import safe_filename, stage_source
+from b2b_domain.ingestion import ImportContractError, safe_filename, stage_source
 from b2b_domain.source_adapters import CsvSourceAdapter, ExcelSourceAdapter, RawRecord
 
 TEMPLATE = (
@@ -22,6 +24,16 @@ def test_csv_adapter_preserves_unknown_separately_from_zero(tmp_path: Path) -> N
     assert records[0].values["amount"] == ""
     assert records[1].values["amount"] == "0"
     assert [record.original_row_number for record in records] == [2, 3]
+
+
+def test_csv_adapter_exposes_source_schema(tmp_path: Path) -> None:
+    source = tmp_path / "values.csv"
+    source.write_text("id,amount\nA,1\n", encoding="utf-8")
+
+    schemas = list(CsvSourceAdapter(source).schemas())
+
+    assert schemas[0].source_name == "values"
+    assert schemas[0].headers == ("id", "amount")
 
 
 def test_excel_adapter_uses_configured_sheet_and_real_row_number() -> None:
@@ -67,3 +79,27 @@ def test_safe_filename_rejects_unsupported_sources() -> None:
         assert "CSV, XLSX, or XLSM" in str(error)
     else:
         raise AssertionError("Unsupported source type was accepted")
+
+
+def test_staging_rejects_oversized_source_without_leaving_a_copy(tmp_path: Path) -> None:
+    try:
+        stage_source(BytesIO(b"id\n1234\n"), "source.csv", tmp_path, max_upload_bytes=4)
+    except ImportContractError as error:
+        assert error.code == "source_too_large"
+    else:
+        raise AssertionError("Oversized source was accepted")
+
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_staging_does_not_touch_an_existing_job_directory(tmp_path: Path) -> None:
+    job_id = uuid.uuid4()
+    existing_dir = tmp_path / str(job_id)
+    existing_dir.mkdir()
+    marker = existing_dir / "keep.txt"
+    marker.write_text("keep", encoding="utf-8")
+
+    with pytest.raises(FileExistsError):
+        stage_source(BytesIO(b"id\n1\n"), "source.csv", tmp_path, job_id=job_id)
+
+    assert marker.read_text(encoding="utf-8") == "keep"

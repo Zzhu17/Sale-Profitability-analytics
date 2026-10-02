@@ -21,7 +21,7 @@ def run_once(session_factory: Callable[[], Session] = SessionLocal) -> bool:
             job = session.get(ImportJob, job.id)
             if job is None:
                 raise
-            outcome = JobOutcome(JobStatus.FAILED, str(error))
+            outcome = JobOutcome(JobStatus.FAILED, str(error), "worker_error")
         record_outcome(session, job, outcome)
         return True
 
