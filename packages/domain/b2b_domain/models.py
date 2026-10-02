@@ -52,6 +52,17 @@ class ValidationDisposition(StrEnum):
     REJECT = "reject"
 
 
+class MappingVersionStatus(StrEnum):
+    DRAFT = "draft"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
+class MappingDecision(StrEnum):
+    APPROVE = "approve"
+    REJECT = "reject"
+
+
 class ImportJob(Base):
     __tablename__ = "import_jobs"
     __table_args__ = (
@@ -205,5 +216,60 @@ class ImportValidationIssue(Base):
     detail: Mapped[str] = mapped_column(Text)
     disposition: Mapped[str] = mapped_column(String(32))
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class MappingVersion(Base):
+    __tablename__ = "mapping_versions"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('draft', 'approved', 'rejected')",
+            name="ck_mapping_versions_status",
+        ),
+        CheckConstraint("version > 0", name="ck_mapping_versions_version"),
+        Index(
+            "uq_mapping_versions_batch_source_version",
+            "import_batch_id",
+            "source_name",
+            "version",
+            unique=True,
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    import_batch_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("import_batches.id"), index=True
+    )
+    source_name: Mapped[str] = mapped_column(String(512))
+    version: Mapped[int] = mapped_column(BigInteger)
+    canonical_entity: Mapped[str] = mapped_column(String(64))
+    field_mappings: Mapped[dict[str, str]] = mapped_column(JSONB)
+    status: Mapped[str] = mapped_column(String(32), default=MappingVersionStatus.DRAFT)
+    created_by: Mapped[str] = mapped_column(String(128))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    reviewed_by: Mapped[str | None] = mapped_column(String(128))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    review_note: Mapped[str | None] = mapped_column(Text)
+
+
+class MappingReviewDecision(Base):
+    __tablename__ = "mapping_review_decisions"
+    __table_args__ = (
+        CheckConstraint(
+            "decision IN ('approve', 'reject')", name="ck_mapping_review_decisions_decision"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    mapping_version_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("mapping_versions.id"), index=True
+    )
+    decision: Mapped[str] = mapped_column(String(32))
+    actor: Mapped[str] = mapped_column(String(128))
+    note: Mapped[str | None] = mapped_column(Text)
+    decided_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

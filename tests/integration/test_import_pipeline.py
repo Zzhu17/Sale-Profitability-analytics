@@ -5,12 +5,18 @@ from io import BytesIO
 from pathlib import Path
 
 import pytest
+from b2b_domain.canonical import CanonicalEntity
+from b2b_domain.mapping_review import create_mapping_version, review_mapping_version
 from b2b_domain.models import (
     BatchStatus,
     ImportBatch,
     ImportJob,
     ImportValidationIssue,
     JobStatus,
+    MappingDecision,
+    MappingReviewDecision,
+    MappingVersion,
+    MappingVersionStatus,
     RawSourceRow,
     SourceProfile,
     ValidationDisposition,
@@ -254,3 +260,149 @@ def test_parse_failure_persists_a_critical_issue(tmp_path: Path) -> None:
         get_settings().raw_data_dir = original_raw_dir
         app.dependency_overrides.clear()
         engine.dispose()
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(TEST_DATABASE_URL is None, reason="TEST_DATABASE_URL is not configured")
+@pytest.mark.parametrize(
+    ("filename", "source_bytes", "expected_code"),
+    [
+        ("empty.csv", b"", "source_empty"),
+        ("broken.xlsx", b"not an Excel workbook", "source_parse_error"),
+    ],
+)
+def test_source_contract_failures_persist_the_expected_issue(
+    tmp_path: Path, filename: str, source_bytes: bytes, expected_code: str
+) -> None:
+    assert TEST_DATABASE_URL is not None
+    engine = create_engine(TEST_DATABASE_URL)
+    session_factory = sessionmaker(bind=engine, class_=Session, expire_on_commit=False)
+
+    def override_session() -> Iterator[Session]:
+        with session_factory() as session:
+            yield session
+
+    app.dependency_overrides[get_session] = override_session
+    original_raw_dir = get_settings().raw_data_dir
+    get_settings().raw_data_dir = tmp_path
+    try:
+        response = TestClient(app).post(
+            "/import-jobs",
+            files={"source": (filename, source_bytes, "application/octet-stream")},
+        )
+        assert response.status_code == 202
+        assert run_once(session_factory)
+
+        with session_factory() as session:
+            batch = session.scalar(
+                select(ImportBatch).where(ImportBatch.import_job_id == response.json()["id"])
+            )
+            assert batch is not None
+            assert batch.status == BatchStatus.FAILED
+            issue = session.scalar(
+                select(ImportValidationIssue).where(
+                    ImportValidationIssue.import_batch_id == batch.id
+                )
+            )
+            assert issue is not None
+            assert issue.code == expected_code
+    finally:
+        get_settings().raw_data_dir = original_raw_dir
+        app.dependency_overrides.clear()
+        engine.dispose()
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(TEST_DATABASE_URL is None, reason="TEST_DATABASE_URL is not configured")
+def test_mapping_versions_are_attributed_and_approved_versions_are_immutable() -> None:
+    assert TEST_DATABASE_URL is not None
+    engine = create_engine(TEST_DATABASE_URL)
+    session_factory = sessionmaker(bind=engine, class_=Session, expire_on_commit=False)
+    sha256 = uuid.uuid4().hex * 2
+
+    with session_factory() as session:
+        job = ImportJob(
+            id=uuid.uuid4(),
+            job_type="import",
+            status=JobStatus.AWAITING_MAPPING,
+            source_filename="orders.csv",
+            source_sha256=sha256,
+        )
+        session.add(job)
+        session.flush()
+        batch = ImportBatch(
+            import_job_id=job.id,
+            status=BatchStatus.AWAITING_MAPPING,
+            source_filename="orders.csv",
+            source_sha256=sha256,
+            storage_path="data/raw/imports/orders.csv",
+        )
+        session.add(batch)
+        session.flush()
+        session.add(
+            SourceProfile(
+                import_batch_id=batch.id,
+                source_name="orders",
+                row_count=1,
+                field_count=2,
+                field_profiles=[{"name": "invoice_id"}, {"name": "amount"}],
+            )
+        )
+        session.commit()
+
+        proposal = create_mapping_version(
+            session,
+            import_batch_id=batch.id,
+            source_name="orders",
+            canonical_entity=CanonicalEntity.INVOICES,
+            field_mappings={"invoice_id": "invoice_id", "amount": "gross_amount"},
+            actor="analyst@example.com",
+        )
+        assert proposal.version == 1
+        assert proposal.status == MappingVersionStatus.DRAFT
+        assert proposal.created_by == "analyst@example.com"
+
+        approved = review_mapping_version(
+            session,
+            mapping_version_id=proposal.id,
+            decision=MappingDecision.APPROVE,
+            actor="reviewer@example.com",
+            note="Approved for the synthetic review path",
+        )
+        assert approved.status == MappingVersionStatus.APPROVED
+        assert approved.reviewed_by == "reviewer@example.com"
+        decision = session.scalar(
+            select(MappingReviewDecision).where(
+                MappingReviewDecision.mapping_version_id == proposal.id
+            )
+        )
+        assert decision is not None
+        assert decision.decision == MappingDecision.APPROVE
+        assert decision.actor == "reviewer@example.com"
+
+        approved.field_mappings = {"invoice_id": "changed"}
+        with pytest.raises(DBAPIError, match="immutable"):
+            session.commit()
+        session.rollback()
+
+        replacement = create_mapping_version(
+            session,
+            import_batch_id=batch.id,
+            source_name="orders",
+            canonical_entity=CanonicalEntity.INVOICES,
+            field_mappings={"invoice_id": "invoice_id"},
+            actor="analyst@example.com",
+        )
+        assert replacement.version == 2
+        rejected = review_mapping_version(
+            session,
+            mapping_version_id=replacement.id,
+            decision=MappingDecision.REJECT,
+            actor="reviewer@example.com",
+            note="Use a new version with the required amount field",
+        )
+        assert rejected.status == MappingVersionStatus.REJECTED
+        assert session.scalars(
+            select(MappingVersion).where(MappingVersion.import_batch_id == batch.id)
+        ).all()
+    engine.dispose()

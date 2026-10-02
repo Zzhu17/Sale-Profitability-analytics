@@ -1,3 +1,5 @@
+import uuid
+from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
@@ -57,3 +59,29 @@ def test_state_machine_rejects_skipped_transitions() -> None:
         transition_job(job, JobStatus.AWAITING_MAPPING)
     with pytest.raises(ImportContractError, match="Cannot move import batch"):
         transition_batch(batch, BatchStatus.AWAITING_MAPPING)
+
+
+def test_worker_persists_loading_before_reading_rows(tmp_path: Path) -> None:
+    source = tmp_path / "source.csv"
+    source.write_text("id\nA\n", encoding="utf-8")
+    job = ImportJob(
+        id=uuid.uuid4(),
+        job_type=JobType.IMPORT,
+        status=JobStatus.RUNNING,
+        source_filename="source.csv",
+        source_sha256=SHA256,
+    )
+    batch = ImportBatch(
+        import_job_id=job.id,
+        status=BatchStatus.RECEIVED,
+        source_filename="source.csv",
+        source_sha256=SHA256,
+        storage_path=str(source),
+    )
+    session = Mock(spec=Session)
+    session.scalar.return_value = batch
+
+    outcome = process_job(session, job)
+
+    assert outcome.status == JobStatus.AWAITING_MAPPING
+    assert [call[0] for call in session.method_calls[:2]] == ["scalar", "commit"]

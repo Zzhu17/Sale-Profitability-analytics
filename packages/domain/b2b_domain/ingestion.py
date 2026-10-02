@@ -133,9 +133,9 @@ def create_import_job(session: Session, staged: StagedSource) -> ImportRegistrat
         storage_path=str(staged.path),
     )
     session.add(job)
-    session.flush()
-    session.add(batch)
     try:
+        session.flush()
+        session.add(batch)
         session.commit()
     except IntegrityError:
         session.rollback()

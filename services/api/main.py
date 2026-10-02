@@ -80,7 +80,10 @@ def create_import_job(
     session: SessionDependency,
 ) -> ImportJobResponse:
     if not source.filename:
-        raise HTTPException(status_code=422, detail="Source filename is required")
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "invalid_filename", "message": "Source filename is required"},
+        )
     staged = None
     try:
         settings = get_settings()

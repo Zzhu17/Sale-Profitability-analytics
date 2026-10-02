@@ -15,6 +15,10 @@ class SourceAdapterError(ValueError):
     pass
 
 
+class SourceEmptyError(SourceAdapterError):
+    pass
+
+
 @dataclass(frozen=True)
 class RawRecord:
     source_name: str
@@ -69,7 +73,7 @@ class CsvSourceAdapter:
             try:
                 headers = _headers(tuple(next(reader)), self.path.stem)
             except StopIteration as error:
-                raise SourceAdapterError(f"{self.path.name}: source is empty") from error
+                raise SourceEmptyError(f"{self.path.name}: source is empty") from error
             yield SourceSchema(self.path.stem, headers)
 
     def records(self) -> Iterator[RawRecord]:

@@ -1,11 +1,21 @@
 import uuid
 from io import BytesIO
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 from b2b_domain.canonical import CanonicalEntity, SourceMapping, map_record
-from b2b_domain.ingestion import ImportContractError, safe_filename, stage_source
+from b2b_domain.ingestion import (
+    ImportContractError,
+    StagedSource,
+    create_import_job,
+    safe_filename,
+    stage_source,
+)
+from b2b_domain.models import BatchStatus, ImportBatch, ImportJob, JobStatus
 from b2b_domain.source_adapters import CsvSourceAdapter, ExcelSourceAdapter, RawRecord
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
 TEMPLATE = (
     Path(__file__).parents[1]
@@ -103,3 +113,30 @@ def test_staging_does_not_touch_an_existing_job_directory(tmp_path: Path) -> Non
         stage_source(BytesIO(b"id\n1\n"), "source.csv", tmp_path, job_id=job_id)
 
     assert marker.read_text(encoding="utf-8") == "keep"
+
+
+def test_registration_reuses_the_winning_concurrent_import(tmp_path: Path) -> None:
+    staged = StagedSource(uuid.uuid4(), "source.csv", tmp_path / "source.csv", "0" * 64)
+    active_job = ImportJob(
+        job_type="import",
+        status=JobStatus.QUEUED,
+        source_filename="source.csv",
+        source_sha256=staged.sha256,
+    )
+    active_batch = ImportBatch(
+        import_job_id=active_job.id,
+        status=BatchStatus.RECEIVED,
+        source_filename="source.csv",
+        source_sha256=staged.sha256,
+        storage_path=str(staged.path),
+    )
+    session = Mock(spec=Session)
+    session.scalar.side_effect = [None, active_job, active_batch]
+    session.commit.side_effect = IntegrityError("insert", {}, Exception("duplicate"))
+
+    registration = create_import_job(session, staged)
+
+    assert registration.reused is True
+    assert registration.job is active_job
+    assert registration.batch is active_batch
+    session.rollback.assert_called_once()

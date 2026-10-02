@@ -3,7 +3,9 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from zipfile import BadZipFile
 
+from openpyxl.utils.exceptions import InvalidFileException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -21,7 +23,12 @@ from b2b_domain.models import (
     ValidationSeverity,
 )
 from b2b_domain.settings import get_settings
-from b2b_domain.source_adapters import RawScalar, SourceAdapterError, adapter_for
+from b2b_domain.source_adapters import (
+    RawScalar,
+    SourceAdapterError,
+    SourceEmptyError,
+    adapter_for,
+)
 
 JOB_TRANSITIONS = {
     JobStatus.QUEUED: frozenset({JobStatus.RUNNING}),
@@ -175,7 +182,6 @@ def _build_profiles(batch: ImportBatch) -> dict[str, SourceProfileAccumulator]:
 
 
 def _load_import(session: Session, job: ImportJob, batch: ImportBatch) -> JobOutcome:
-    transition_batch(batch, BatchStatus.LOADING)
     profiles = _build_profiles(batch)
     settings = get_settings()
     record_count = 0
@@ -246,8 +252,13 @@ def process_job(session: Session, job: ImportJob) -> JobOutcome:
     if batch is None:
         return JobOutcome(JobStatus.FAILED, "Import batch is missing", "missing_batch")
     try:
+        transition_batch(batch, BatchStatus.LOADING)
+        session.commit()
         return _load_import(session, job, batch)
-    except SourceAdapterError as error:
+    except SourceEmptyError as error:
+        session.rollback()
+        return JobOutcome(JobStatus.FAILED, str(error), "source_empty")
+    except (SourceAdapterError, BadZipFile, InvalidFileException, UnicodeError) as error:
         session.rollback()
         return JobOutcome(JobStatus.FAILED, str(error), "source_parse_error")
     except ImportContractError as error:
