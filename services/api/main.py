@@ -29,6 +29,7 @@ from b2b_domain.models import (
 )
 from b2b_domain.settings import get_settings
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -37,6 +38,12 @@ app = FastAPI(
     title="B2B Sales Profitability Intelligence API",
     version="0.2.0",
     description="Gate 1 readiness; business contracts remain provisional pending real D0 data.",
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
 
 

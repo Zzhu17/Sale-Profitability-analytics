@@ -66,3 +66,49 @@ footer {
   margin-top: 3rem;
   font-size: 0.85rem;
 }
+
+.notice {
+  padding: 0.8rem 1rem;
+  background: #fffaf0;
+  border-left: 4px solid #bd7a31;
+}
+
+.form-row,
+.form-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: end;
+}
+
+.form-grid label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+input,
+select,
+button {
+  font: inherit;
+  padding: 0.45rem 0.6rem;
+}
+
+button {
+  cursor: pointer;
+}
+
+.card,
+.issues,
+.mappings {
+  padding: 1rem;
+  background: #f8faf5;
+  border: 1px solid #ccd4cc;
+}
+
+.mappings span {
+  margin-left: 1rem;
+}
+
+.mappings button + button {
+  margin-left: 0.5rem;
+}
