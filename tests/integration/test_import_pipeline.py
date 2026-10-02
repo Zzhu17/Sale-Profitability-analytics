@@ -349,6 +349,8 @@ def test_mapping_versions_are_attributed_and_approved_versions_are_immutable() -
             )
         )
         session.commit()
+        job_id = job.id
+        batch_id = batch.id
 
         proposal = create_mapping_version(
             session,
@@ -361,6 +363,7 @@ def test_mapping_versions_are_attributed_and_approved_versions_are_immutable() -
         assert proposal.version == 1
         assert proposal.status == MappingVersionStatus.DRAFT
         assert proposal.created_by == "analyst@example.com"
+        proposal_id = proposal.id
 
         approved = review_mapping_version(
             session,
@@ -402,7 +405,50 @@ def test_mapping_versions_are_attributed_and_approved_versions_are_immutable() -
             note="Use a new version with the required amount field",
         )
         assert rejected.status == MappingVersionStatus.REJECTED
-        assert session.scalars(
-            select(MappingVersion).where(MappingVersion.import_batch_id == batch.id)
-        ).all()
+        assert len(
+            session.scalars(
+                select(MappingVersion).where(MappingVersion.import_batch_id == batch.id)
+            ).all()
+        ) == 2
+
+    def override_session() -> Iterator[Session]:
+        with session_factory() as session:
+            yield session
+
+    app.dependency_overrides[get_session] = override_session
+    try:
+        client = TestClient(app)
+        assert client.get(f"/import-jobs/{job_id}/batches").json()[0]["id"] == str(batch_id)
+        profiles = client.get(f"/import-batches/{batch_id}/source-profiles").json()
+        assert profiles[0]["source_name"] == "orders"
+        assert client.get(f"/import-batches/{batch_id}/validation-issues").json() == []
+        mappings = client.get(f"/import-batches/{batch_id}/mapping-versions").json()
+        assert [mapping["version"] for mapping in mappings] == [1, 2]
+        assert client.get(f"/mapping-versions/{proposal_id}/review-decisions").json()[0][
+            "decision"
+        ] == MappingDecision.APPROVE
+
+        created = client.post(
+            f"/import-batches/{batch_id}/mapping-versions",
+            json={
+                "source_name": "orders",
+                "canonical_entity": CanonicalEntity.INVOICES,
+                "field_mappings": {"amount": "gross_amount"},
+                "actor": "api-analyst@example.com",
+            },
+        )
+        assert created.status_code == 201
+        assert created.json()["version"] == 3
+        reviewed = client.post(
+            f"/mapping-versions/{created.json()['id']}/review-decisions",
+            json={
+                "decision": MappingDecision.REJECT,
+                "actor": "api-reviewer@example.com",
+                "note": "Synthetic review",
+            },
+        )
+        assert reviewed.status_code == 200
+        assert reviewed.json()["status"] == MappingVersionStatus.REJECTED
+    finally:
+        app.dependency_overrides.clear()
     engine.dispose()
