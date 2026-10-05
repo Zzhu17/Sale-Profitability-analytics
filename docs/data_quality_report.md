@@ -27,3 +27,11 @@ Implemented readiness checks:
 | Temporal backtesting | Pending | Fully observable expanding-window folds and final test window |
 
 Critical, warning, and informational severities will be reported separately. Long-tail B2B values will be reviewed with IQR, MAD, and percentiles rather than automatically deleted.
+
+## S1-08 synthetic rehearsal
+
+The 2026-10-05 rehearsal validated the workbook template and all six synthetic fixture
+tables. The deliberately adverse fixture set produced 7 critical, 7 warning, and 3
+informational findings. Every Gate 1 judgment remained `Pending`, as required for
+synthetic evidence. See [Gate 1 activation status](gate-1-activation.md) for the exact
+boundary and remaining input.

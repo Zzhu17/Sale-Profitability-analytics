@@ -2,7 +2,7 @@
 
 Sprint 0 foundation for a decision-support product that helps B2B sales teams identify **accounts warranting review**. This repository is a production-shaped modular monolith; it is not yet a finished recommendation product.
 
-Sprint 0 engineering is complete. [Sprint 1 planning](docs/sprint-1-plan.md) is ready for the import, validation, and mapping-review vertical slice; activation of real mappings and downstream business logic remains gated by the D0 audit of real anonymized data.
+Sprint 0 engineering and the Sprint 1 synthetic vertical slice are complete. The [Sprint 1 plan](docs/sprint-1-plan.md) records S1-08 as blocked on real anonymized data; the S1-09 canonical promotion seam is implemented but remains inactive behind that gate.
 
 ## Current boundary
 
@@ -53,6 +53,7 @@ The `migrate` service applies Alembic before the API and worker start. The worke
 
 The [import contract](docs/import-contract.md) defines accepted source types, configurable limits, idempotent retries, state transitions, and validation persistence.
 The [mapping review contract](docs/mapping-review-contract.md) defines versioned mapping proposals and attributable, immutable review decisions.
+The [canonical promotion contract](docs/canonical-promotion-contract.md) defines the real-evidence activation boundary and raw-row lineage.
 
 For host development:
 
@@ -95,8 +96,9 @@ uv run pytest
 pnpm lint
 pnpm test
 pnpm build
+pnpm test:e2e
 docker compose config
-docker compose build api worker
+docker compose build api worker web
 ```
 
 ## Archived source artifacts

@@ -1,6 +1,6 @@
 # Sprint 1 Plan — Import, Validation, and Mapping Review
 
-- **Planning status:** In progress — S1-01 through S1-03 complete
+- **Planning status:** S1-01 through S1-07 complete; S1-08 blocked on real data; S1-09 engineering complete but inactive
 - **Implementation gate:** Generic engineering work may begin; real source activation remains blocked until Gate 1.
 - **Capacity assumption:** One developer, ordered backlog, no calendar commitment until capacity is confirmed.
 
@@ -70,8 +70,8 @@ These remain Sprint 2+ candidates after Gate 1 evidence is available.
 | S1-05 | Import and mapping-review API | M | S1-03, S1-04 | Complete — API lists batches, source profiles, issues, mapping proposals, and review decisions with stable response models. |
 | S1-06 | Minimal web vertical slice | M | S1-05 | Complete — user can upload, poll status, inspect issues, and approve or reject a mapping proposal with accessible loading/error states. |
 | S1-07 | Integration and E2E coverage | M | S1-03–S1-06 | Complete — PostgreSQL integration tests and one synthetic browser flow run in CI without private data. |
-| S1-08 | Gate 1 real-data audit and mapping activation | M | Real anonymized data | D0 outputs are evidence-backed; approved mapping is exercised against private data; unresolved gates are explicit. |
-| S1-09 | Canonical promotion seam | L | S1-08 | Approved mappings can promote accepted rows with raw-row and mapping-version lineage; unapproved mappings cannot. |
+| S1-08 | Gate 1 real-data audit and mapping activation | M | Real anonymized data | Blocked — synthetic rehearsal passes the tooling boundary and leaves every gate Pending; real judgments and activation require a private anonymized delivery. |
+| S1-09 | Canonical promotion seam | L | S1-08 | Engineering complete, inactive — promotion is idempotent and lineage-preserving, while unapproved, synthetic-only, or non-activated mappings are rejected. |
 
 `S1-09` is a stretch item. If Gate 1 arrives late, Sprint 1 ends with the reviewed mapping workflow and canonical promotion moves to the next sprint.
 
