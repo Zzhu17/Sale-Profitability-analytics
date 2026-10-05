@@ -59,4 +59,41 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker compose config
-      - run: docker compose build api worker
+      - run: docker compose build api worker web
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: docker compose up --build --detach
+      - name: Wait for application
+        run: |
+          curl --fail --retry 30 --retry-all-errors --retry-delay 2 http://localhost:8000/healthz
+          curl --fail --retry 30 --retry-all-errors --retry-delay 2 http://localhost:5173
+      - run: pnpm test:e2e
+      - name: Capture Compose logs
+        if: failure()
+        run: |
+          mkdir -p output/playwright
+          docker compose logs --no-color > output/playwright/compose.log
+      - name: Upload browser artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: output/playwright
+          if-no-files-found: ignore
+      - name: Stop services
+        if: always()
+        run: docker compose down --volumes

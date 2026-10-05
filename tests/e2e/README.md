@@ -1,5 +1,5 @@
 # End-to-end tests
 
-The Sprint 1 synthetic browser path has been verified against local Compose services: upload `customers.csv`, wait for `awaiting_mapping`, inspect the field profile, create a mapping draft, and approve it. It uses only repository fixtures and does not require D0 or private data.
+The Sprint 1 synthetic browser path uploads an in-memory derivative of `invoices.csv`, waits for `awaiting_mapping`, inspects the field profile, creates a mapping draft, and approves it. It uses only repository fixtures and does not require D0 or private data.
 
-GitHub Actions currently runs the PostgreSQL integration suite and frontend unit tests. A browser automation job remains the next S1-07 task before this manual flow can be described as CI coverage.
+Run it against the local Compose stack with `pnpm test:e2e`. GitHub Actions starts the same stack, installs Chromium, runs this flow, and uploads Playwright traces, screenshots, videos, and Compose logs when it fails.

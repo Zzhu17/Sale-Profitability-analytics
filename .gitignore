@@ -14,6 +14,7 @@ apps/web/dist/
 *.tsbuildinfo
 playwright-report/
 test-results/
+output/playwright/
 
 # Private or generated data must not be committed.
 data/raw/*

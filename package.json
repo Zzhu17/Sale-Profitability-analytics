@@ -8,6 +8,10 @@
   "scripts": {
     "build": "pnpm --recursive build",
     "lint": "pnpm --recursive lint",
-    "test": "pnpm --recursive test"
+    "test": "pnpm --recursive test",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
   }
 }
